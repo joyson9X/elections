@@ -198,13 +198,13 @@
         // --- Firebase Configuration & Initialization ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-election-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyDng5hZu-3IWC_dIoAr2spA44wTcqN0Wic",
-            authDomain: "elecion-2.firebaseapp.com",
-            projectId: "elecion-2",
-            storageBucket: "elecion-2.firebasestorage.app",
-            messagingSenderId: "140168673537",
-            appId: "1:140168673537:web:364f9fcc50f179a2b10300",
-            measurementId: "G-KX5R7XXHFQ"
+            apiKey: "AIzaSyDECwN-9_1vDHA72LaEJIqwNxEXx-MrsCI",
+            authDomain: "election-3.firebaseapp.com",
+            projectId: "election-3",
+            storageBucket: "election-3.firebasestorage.app",
+            messagingSenderId: "17777911959",
+            appId: "1:17777911959:web:baad82e70374119f13e1d2",
+            measurementId: "G-7ZTRM1400B"
         };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -246,7 +246,10 @@
 
         // --- Timer Logic ---
         function startCountdownTimer() {
-            const countDownDate = new Date("Jul 9, 2025 20:00:00").getTime();
+            const countDownDate = new Date();
+            countDownDate.setDate(countDownDate.getDate() + 1);
+            countDownDate.setHours(20, 0, 0, 0); // Set to 8:00 PM tomorrow
+
             const hoursEl = document.getElementById('hours');
             const minutesEl = document.getElementById('minutes');
             const secondsEl = document.getElementById('seconds');
@@ -270,7 +273,8 @@
                 }
                 
                 if(hoursEl && minutesEl && secondsEl) {
-                    hoursEl.textContent = Math.floor(distance / (1000 * 60 * 60)).toString().padStart(2, '0');
+                    const totalHours = Math.floor(distance / (1000 * 60 * 60));
+                    hoursEl.textContent = totalHours.toString().padStart(2, '0');
                     minutesEl.textContent = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
                     secondsEl.textContent = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
                 }
@@ -313,11 +317,11 @@
         // --- Firestore Logic ---
         async function initializeCandidates() {
             const initialVotes = {
-                'Jessica': 5302,
-                'Joyson': 1069,
-                'Lenisha': 7000,
-                'Maayan': 3954,
-                'Naston': 501,
+                'Jessica': 17323,
+                'Joyson': 1179,
+                'Lenisha': 18270,
+                'Maayan': 4104,
+                'Naston': 675,
                 'Nesly': 2185
             };
             const promises = candidates.map(async (name) => {

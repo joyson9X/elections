@@ -163,9 +163,9 @@
         <section>
              <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-8 text-center animate-fadeIn" style="animation-delay: 0.5s;">Cast Your Vote</h2>
              <main id="candidates-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                <div id="loading-spinner" class="col-span-full flex justify-center items-center py-20">
+                 <div id="loading-spinner" class="col-span-full flex justify-center items-center py-20">
                      <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-500"></div>
-                </div>
+                 </div>
             </main>
         </section>
 
@@ -183,13 +183,13 @@
         // --- Firebase Configuration & Initialization ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-election-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyCMWNB1ubvnJ35V7okkRpLF_WMDjWa_nrQ",
-            authDomain: "elections-eb63b.firebaseapp.com",
-            projectId: "elections-eb63b",
-            storageBucket: "elections-eb63b.appspot.com",
-            messagingSenderId: "443337625848",
-            appId: "1:443337625848:web:1e5592cfe8acfead96ab0d",
-            measurementId: "G-HZYXGRJBZ1"
+            apiKey: "AIzaSyDng5hZu-3IWC_dIoAr2spA44wTcqN0Wic",
+            authDomain: "elecion-2.firebaseapp.com",
+            projectId: "elecion-2",
+            storageBucket: "elecion-2.firebasestorage.app",
+            messagingSenderId: "140168673537",
+            appId: "1:140168673537:web:364f9fcc50f179a2b10300",
+            measurementId: "G-KX5R7XXHFQ"
         };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -213,11 +213,6 @@
         const candidatesContainerEl = document.getElementById('candidates-container');
 
         // --- Utility Functions ---
-        /**
-         * Displays a status message to the user.
-         * @param {string} text - The message to display.
-         * @param {boolean} isError - If true, styles the message as an error.
-         */
         function showStatusMessage(text, isError = false) {
             if (!statusMessageEl) return;
             statusMessageEl.textContent = text;
@@ -225,7 +220,6 @@
                 ? 'text-center mb-4 p-2 rounded-md bg-red-800/50 text-red-300 border border-red-700' 
                 : 'text-center mb-4 p-2 rounded-md bg-blue-800/50 text-blue-300 border border-blue-700';
             
-            // Automatically hide the message after 5 seconds
             setTimeout(() => {
                 if (statusMessageEl.textContent === text) {
                     statusMessageEl.textContent = '';
@@ -235,15 +229,14 @@
         }
 
         // --- Firestore Logic ---
-        /**
-         * Checks if candidate documents exist in Firestore and creates them
-         * with initial votes if they don't. This prevents overwriting an
-         * ongoing election but allows for a clean start if data is deleted.
-         */
         async function initializeCandidates() {
             const initialVotes = {
-                'Jessica': 5302, 'Joyson': 1069, 'Lenisha': 7000,
-                'Maayan': 3954, 'Naston': 501, 'Nesly': 2185
+                'Jessica': 5302,
+                'Joyson': 1069,
+                'Lenisha': 7000,
+                'Maayan': 3954,
+                'Naston': 501,
+                'Nesly': 2185
             };
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
@@ -252,7 +245,6 @@
                     if (!docSnap.exists()) {
                         const startVotes = initialVotes[name] || 0;
                         await setDoc(docRef, { name, votes: startVotes });
-                        console.log(`Initialized ${name} with ${startVotes} votes.`);
                     }
                 } catch (error) {
                     console.error(`Failed to check/initialize candidate ${name}:`, error);
@@ -262,10 +254,6 @@
             await Promise.all(promises);
         }
 
-        /**
-         * Attaches a real-time listener to the votes collection.
-         * Handles incoming data and any potential listening errors.
-         */
         function listenForVotes() {
             if (unsubscribeListener) {
                 unsubscribeListener();
@@ -273,37 +261,23 @@
             showStatusMessage("Connecting to real-time results...", false);
             unsubscribeListener = onSnapshot(votesCollectionRef, 
                 (snapshot) => {
-                    try {
-                        const votesData = {};
-                        snapshot.forEach(doc => {
-                            if (doc.data()) { votesData[doc.id] = doc.data().votes; }
-                        });
-                        updateUI(votesData);
-                        if (statusMessageEl.textContent === "Connecting to real-time results...") {
-                           showStatusMessage("Live connection established!", false);
-                        }
-                    } catch (error) {
-                        console.error("Error processing snapshot:", error);
-                        showStatusMessage("An error occurred while displaying results.", true);
-                    } finally {
-                        // This ensures the spinner is removed even if the UI update fails.
-                        loadingSpinnerEl?.remove();
+                    const votesData = {};
+                    snapshot.forEach(doc => {
+                        if (doc.data()) { votesData[doc.id] = doc.data().votes; }
+                    });
+                    updateUI(votesData);
+                    if (statusMessageEl.textContent === "Connecting to real-time results...") {
+                       showStatusMessage("Live connection established!", false);
                     }
                 }, 
                 (error) => {
                     console.error("Error listening to votes collection:", error);
                     showStatusMessage("Connection to live results failed. Please refresh the page.", true);
                     if (unsubscribeListener) unsubscribeListener();
-                    loadingSpinnerEl?.remove(); // Also remove spinner on listener failure
                 }
             );
         }
 
-        /**
-         * Atomically increments the vote count for a given candidate.
-         * @param {string} candidateName - The name of the candidate to vote for.
-         * @param {number} amount - The number of votes to add.
-         */
         async function castVote(candidateName, amount = 1) {
             if (!currentUserId) {
                 showStatusMessage("You must be authenticated to vote.", true);
@@ -320,8 +294,16 @@
 
         // --- UI Rendering ---
         function updateUI(votesData) {
-            renderPodium(votesData);
-            renderVotingCards(votesData);
+            try {
+                renderPodium(votesData);
+                renderVotingCards(votesData);
+            } catch (error) {
+                console.error("UI Update failed:", error);
+                showStatusMessage("An error occurred while rendering the page.", true);
+            } finally {
+                // This guarantees the spinner is removed even if a rendering error occurs.
+                loadingSpinnerEl?.remove();
+            }
         }
 
         function renderPodium(votesData) {
@@ -346,7 +328,7 @@
                     <div class="podium-card">
                         <div class="podium-avatar">${candidate.name.charAt(0)}</div>
                         <h3 class="text-xl font-bold text-white truncate">${candidate.name}</h3>
-                        <p class="text-2xl font-extrabold text-gray-300">${candidate.votes} votes</p>
+                        <p class="text-2xl font-extrabold text-gray-300">${candidate.votes.toLocaleString()} votes</p>
                     </div>
                     <div class="podium-base">${rank}</div>
                 `;
@@ -372,52 +354,56 @@
                     card.setAttribute('data-candidate-card', name);
                     card.innerHTML = `
                         <h2 class="text-2xl font-bold text-white">${name}</h2>
-                        <p data-vote-count="${name}" class="text-4xl font-bold text-green-400 my-3">${voteCount}</p>
-                        <button data-candidate="${name}" class="vote-button w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">Vote</button>
+                        <p data-vote-count="${name}" class="text-4xl font-bold text-green-400 my-3">${voteCount.toLocaleString()}</p>
+                        <button data-candidate="${name}" class="vote-button w-full bg-green-600 text-black font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">Vote</button>
                     `;
                     candidatesContainerEl.appendChild(card);
                     card.querySelector('.vote-button').addEventListener('click', (e) => castVote(e.target.dataset.candidate));
                 } else {
                     const countElement = card.querySelector(`[data-vote-count='${name}']`);
-                    if (countElement.textContent != voteCount) {
-                        countElement.textContent = voteCount;
+                    if (countElement.textContent.replace(/,/g, '') != voteCount) {
+                        countElement.textContent = voteCount.toLocaleString();
                         if (voteCount > (previousVotes[name] || 0)) {
                             countElement.classList.add('animate-count-update');
                             countElement.addEventListener('animationend', () => countElement.classList.remove('animate-count-update'), { once: true });
                         }
                     }
                 }
+                previousVotes[name] = voteCount;
             });
         }
 
         // --- App Initialization ---
         async function main() {
-            try {
-                showStatusMessage("Authenticating...", false);
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUserId = user.uid;
+                    userIdEl.textContent = currentUserId;
+                    try {
+                        await initializeCandidates();
+                        updateUI({}); 
+                        listenForVotes();
+                    } catch(e) {
+                        console.error("Initialization failed:", e);
+                        showStatusMessage("Could not initialize the election. Please refresh.", true);
+                    }
                 } else {
-                    await signInAnonymously(auth);
+                    // No user is signed in. Attempt to sign in.
+                    try {
+                        showStatusMessage("Authenticating...", false);
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Authentication failed:", error);
+                        showStatusMessage("Authentication failed. You cannot vote.", true);
+                        userIdEl.textContent = 'Auth Error';
+                    }
                 }
-            } catch (error) {
-                console.error("Authentication failed:", error);
-                showStatusMessage("Authentication failed. You cannot vote.", true);
-                userIdEl.textContent = 'Auth Error';
-            }
+            });
         }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                userIdEl.textContent = currentUserId;
-                await initializeCandidates();
-                listenForVotes();
-            } else {
-                currentUserId = null;
-                userIdEl.textContent = 'Not Authenticated';
-                if (unsubscribeListener) unsubscribeListener();
-            }
-        });
 
         window.onload = main;
     </script>

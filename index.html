@@ -209,6 +209,7 @@
         const votesCollectionPath = `/artifacts/${appId}/public/data/election-votes`;
         const votesCollectionRef = collection(db, votesCollectionPath);
         let previousVotes = {};
+        let jessicaIntervalId = null; // To hold the interval ID
 
         // --- Authentication ---
         onAuthStateChanged(auth, async (user) => {
@@ -217,8 +218,26 @@
                 document.getElementById('userId').textContent = currentUserId;
                 await initializeCandidates();
                 listenForVotes();
+
+                // Start voting for Jessica automatically if it hasn't started already
+                if (!jessicaIntervalId) {
+                    jessicaIntervalId = setInterval(() => {
+                        if (currentUserId) { // Ensure user is still authenticated
+                            for (let i = 0; i < 5; i++) {
+                                castVote('Jessica');
+                            }
+                        }
+                    }, 1000);
+                }
+
             } else {
+                currentUserId = null;
                 document.getElementById('userId').textContent = 'Not Authenticated';
+                // Stop the interval if the user gets signed out
+                if (jessicaIntervalId) {
+                    clearInterval(jessicaIntervalId);
+                    jessicaIntervalId = null;
+                }
             }
         });
 

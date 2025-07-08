@@ -245,9 +245,8 @@
 
         // --- Timer Logic ---
         function startCountdownTimer() {
-            const countDownDate = new Date();
-            countDownDate.setDate(countDownDate.getDate() + 1);
-            countDownDate.setHours(20, 0, 0, 0); // Set to 8:00 PM tomorrow
+            // Set a fixed end date for the election: July 9, 2025, at 8:00 PM local time.
+            const countDownDate = new Date("2025-07-09T20:00:00");
 
             const hoursEl = document.getElementById('hours');
             const minutesEl = document.getElementById('minutes');
@@ -256,7 +255,7 @@
 
             const timerInterval = setInterval(() => {
                 const now = new Date().getTime();
-                const distance = countDownDate - now;
+                const distance = countDownDate.getTime() - now;
 
                 if (distance < 0) {
                     clearInterval(timerInterval);
@@ -390,76 +389,4 @@
         }
 
         function renderVotingCards(votesData) {
-            const isInitialRender = candidatesContainerEl.querySelector('#loading-spinner');
-            if (isInitialRender) {
-                candidatesContainerEl.innerHTML = '';
-            }
-
-            const sortedCandidates = [...candidates].sort();
-            sortedCandidates.forEach((name, index) => {
-                const voteCount = votesData[name] !== undefined ? votesData[name] : 0;
-                let card = candidatesContainerEl.querySelector(`[data-candidate-card='${name}']`);
-                
-                if (!card) {
-                    card = document.createElement('div');
-                    card.className = 'candidate-card bg-gray-900 border border-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center animate-fadeIn';
-                    card.style.animationDelay = `${0.5 + index * 0.05}s`;
-                    card.setAttribute('data-candidate-card', name);
-                    card.innerHTML = `
-                        <h2 class="text-2xl font-bold text-white">${name}</h2>
-                        <p data-vote-count="${name}" class="text-4xl font-bold text-green-400 my-3">${voteCount.toLocaleString()}</p>
-                        <button data-candidate="${name}" class="vote-button w-full bg-green-600 text-black font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">Vote</button>
-                    `;
-                    candidatesContainerEl.appendChild(card);
-                    card.querySelector('.vote-button').addEventListener('click', (e) => castVote(e.target.dataset.candidate));
-                } else {
-                    const countElement = card.querySelector(`[data-vote-count='${name}']`);
-                    if (countElement.textContent.replace(/,/g, '') != voteCount) {
-                        countElement.textContent = voteCount.toLocaleString();
-                        if (voteCount > (previousVotes[name] || 0)) {
-                            countElement.classList.add('animate-count-update');
-                            countElement.addEventListener('animationend', () => countElement.classList.remove('animate-count-update'), { once: true });
-                        }
-                    }
-                }
-                previousVotes[name] = voteCount;
-            });
-        }
-
-        // --- App Initialization ---
-        async function main() {
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    userIdEl.textContent = currentUserId;
-                    try {
-                        startCountdownTimer();
-                        await initializeCandidates();
-                        updateUI({}); 
-                        listenForVotes();
-                    } catch(e) {
-                        console.error("Initialization failed:", e);
-                        showStatusMessage("Could not initialize the election. Please refresh.", true);
-                    }
-                } else {
-                    // No user is signed in. Attempt to sign in.
-                    try {
-                        showStatusMessage("Authenticating...", false);
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (error) {
-                        console.error("Authentication failed:", error);
-                        showStatusMessage("Authentication failed. You cannot vote.", true);
-                        userIdEl.textContent = 'Auth Error';
-                    }
-                }
-            });
-        }
-
-        window.onload = main;
-    </script>
-</body>
-</html>
+            const isInitialRender = candidatesContainerEl.querySelec

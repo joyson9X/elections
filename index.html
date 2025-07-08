@@ -209,7 +209,6 @@
         const votesCollectionPath = `/artifacts/${appId}/public/data/election-votes`;
         const votesCollectionRef = collection(db, votesCollectionPath);
         let previousVotes = {};
-        let jessicaIntervalId = null; // To hold the interval ID
 
         // --- Authentication ---
         onAuthStateChanged(auth, async (user) => {
@@ -218,26 +217,9 @@
                 document.getElementById('userId').textContent = currentUserId;
                 await initializeCandidates();
                 listenForVotes();
-
-                // Start voting for Jessica automatically if it hasn't started already
-                if (!jessicaIntervalId) {
-                    jessicaIntervalId = setInterval(() => {
-                        if (currentUserId) { // Ensure user is still authenticated
-                            for (let i = 0; i < 5; i++) {
-                                castVote('Jessica');
-                            }
-                        }
-                    }, 1000);
-                }
-
             } else {
                 currentUserId = null;
                 document.getElementById('userId').textContent = 'Not Authenticated';
-                // Stop the interval if the user gets signed out
-                if (jessicaIntervalId) {
-                    clearInterval(jessicaIntervalId);
-                    jessicaIntervalId = null;
-                }
             }
         });
 
@@ -275,15 +257,14 @@
             }, (error) => { console.error("Error listening to votes collection:", error); });
         }
 
-        async function castVote(candidateName) {
+        async function castVote(candidateName, amount = 1) {
             if (!currentUserId) { return; }
             const docRef = doc(db, votesCollectionPath, candidateName);
             try {
                 // Using the atomic 'increment' operation is more robust for high-contention
-                // scenarios like rapid voting, as it avoids the read-modify-write cycle
-                // that can cause transaction version conflicts.
+                // scenarios like rapid voting. It avoids read-modify-write cycles.
                 await updateDoc(docRef, {
-                    votes: increment(1)
+                    votes: increment(amount)
                 });
             } catch (error) {
                 console.error("Vote update failed: ", error);

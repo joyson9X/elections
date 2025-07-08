@@ -235,11 +235,30 @@
 
         // --- Firestore Logic ---
         async function initializeCandidates() {
+            // This object holds the starting vote counts you provided.
+            const initialVotes = {
+                'Jessica': 5302,
+                'Joyson': 1069,
+                'Lenisha': 7000,
+                'Maayan': 3954,
+                'Naston': 501,
+                'Nesly': 2185
+            };
+
             for (const name of candidates) {
                 const docRef = doc(db, votesCollectionPath, name);
                 const docSnap = await getDoc(docRef);
+                
+                // Only create a document if it does not already exist.
+                // This prevents overwriting an ongoing election.
                 if (!docSnap.exists()) {
-                    try { await setDoc(docRef, { name: name, votes: 0 }); } 
+                    // If the candidate doc doesn't exist, create it with the specified initial vote count.
+                    // Default to 0 if not specified in the initialVotes object.
+                    const startVotes = initialVotes[name] || 0;
+                    try { 
+                        await setDoc(docRef, { name: name, votes: startVotes }); 
+                        console.log(`Initialized ${name} with ${startVotes} votes.`);
+                    } 
                     catch (error) { console.error(`Failed to create document for ${name}:`, error); }
                 }
             }

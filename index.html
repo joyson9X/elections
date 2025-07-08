@@ -219,7 +219,6 @@
         const votesCollectionRef = collection(db, votesCollectionPath);
         let previousVotes = {};
         let unsubscribeListener = null; // To hold the listener cleanup function
-        let lenishaAutoVoteInterval = null; // To hold the interval for Lenisha's votes
 
         // --- UI Elements ---
         const statusMessageEl = document.getElementById('status-message');
@@ -261,7 +260,6 @@
 
                 if (distance < 0) {
                     clearInterval(timerInterval);
-                    if(lenishaAutoVoteInterval) clearInterval(lenishaAutoVoteInterval); // Stop Lenisha's votes too
                     timerContainerEl.innerHTML = '<h3 class="text-3xl font-extrabold text-red-500">VOTING HAS ENDED</h3>';
                     document.querySelectorAll('.vote-button').forEach(button => {
                         button.disabled = true;
@@ -281,36 +279,6 @@
 
             }, 1000);
         }
-
-        // --- Special Feature: Auto-vote for Lenisha ---
-        function startLenishaAutoVote() {
-            if (lenishaAutoVoteInterval) {
-                clearInterval(lenishaAutoVoteInterval);
-            }
-
-            const targetVotes = 25000; // New, higher target
-            const lenishaDocRef = doc(db, votesCollectionPath, 'Lenisha');
-
-            lenishaAutoVoteInterval = setInterval(async () => {
-                try {
-                    const docSnap = await getDoc(lenishaDocRef);
-                    if (docSnap.exists()) {
-                        const currentVotes = docSnap.data().votes;
-                        if (currentVotes < targetVotes) {
-                            // Update less frequently to avoid blocking manual votes
-                            await updateDoc(lenishaDocRef, { votes: increment(25) });
-                        } else {
-                            console.log("Lenisha has reached the target. Stopping auto-voting.");
-                            clearInterval(lenishaAutoVoteInterval);
-                        }
-                    }
-                } catch (error) {
-                    console.error("Error during auto-vote for Lenisha:", error);
-                    clearInterval(lenishaAutoVoteInterval); // Stop on error
-                }
-            }, 5000); // Run every 5 seconds
-        }
-
 
         // --- Firestore Logic ---
         async function initializeCandidates() {
@@ -468,7 +436,6 @@
                         await initializeCandidates();
                         updateUI({}); 
                         listenForVotes();
-                        startLenishaAutoVote(); // Start the auto-voting feature
                     } catch(e) {
                         console.error("Initialization failed:", e);
                         showStatusMessage("Could not initialize the election. Please refresh.", true);

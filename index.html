@@ -293,14 +293,15 @@
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
                 try {
-                    // This will create the document if it doesn't exist,
-                    // or overwrite it if it does. This ensures the new
-                    // offline counts are set as the starting point.
-                    const startVotes = initialVotes[name] || 0;
-                    await setDoc(docRef, { name, votes: startVotes });
+                    const docSnap = await getDoc(docRef);
+                    // **FIX:** Only set the initial votes if the document does NOT exist.
+                    if (!docSnap.exists()) {
+                        const startVotes = initialVotes[name] || 0;
+                        await setDoc(docRef, { name, votes: startVotes });
+                    }
                 } catch (error) {
-                    console.error(`Failed to set initial votes for ${name}:`, error);
-                    showStatusMessage(`Error setting votes for: ${name}`, true);
+                    console.error(`Failed to initialize candidate ${name}:`, error);
+                    showStatusMessage(`Error initializing candidate: ${name}`, true);
                 }
             });
             await Promise.all(promises);

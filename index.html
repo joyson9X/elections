@@ -136,6 +136,11 @@
         .podium-rank-1 .podium-avatar { border-color: #FFD700; color: #FFD700; }
         .podium-rank-2 .podium-avatar { border-color: #C0C0C0; color: #C0C0C0; }
         .podium-rank-3 .podium-avatar { border-color: #CD7F32; color: #CD7F32; }
+
+        .timer-segment {
+            display: inline-block;
+            min-width: 2.5ch; /* Ensure consistent width */
+        }
     </style>
 </head>
 <body class="bg-black text-gray-200">
@@ -148,6 +153,16 @@
                 <p>User ID: <span id="userId" class="font-mono">Loading...</span></p>
             </div>
         </header>
+
+        <!-- Timer Section -->
+        <div id="timer-container" class="my-8 text-center animate-fadeIn" style="animation-delay: 0.2s;">
+            <h3 class="text-lg font-semibold text-gray-400 uppercase tracking-wider">Voting Ends In</h3>
+            <div id="timer" class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-yellow-400 mt-2">
+                <span class="timer-segment" id="hours">00</span>h
+                <span class="timer-segment" id="minutes">00</span>m
+                <span class="timer-segment" id="seconds">00</span>s
+            </div>
+        </div>
 
         <!-- Status Message Area -->
         <div id="status-message" class="text-center mb-4 transition-opacity duration-300"></div>
@@ -204,6 +219,7 @@
         const votesCollectionRef = collection(db, votesCollectionPath);
         let previousVotes = {};
         let unsubscribeListener = null; // To hold the listener cleanup function
+        let lenishaAutoVoteInterval = null; // To hold the interval for Lenisha's votes
 
         // --- UI Elements ---
         const statusMessageEl = document.getElementById('status-message');
@@ -227,6 +243,72 @@
                 }
             }, 5000);
         }
+
+        // --- Timer Logic ---
+        function startCountdownTimer() {
+            const countDownDate = new Date("Jul 9, 2025 20:00:00").getTime();
+            const hoursEl = document.getElementById('hours');
+            const minutesEl = document.getElementById('minutes');
+            const secondsEl = document.getElementById('seconds');
+            const timerContainerEl = document.getElementById('timer-container');
+
+            const timerInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = countDownDate - now;
+
+                if (distance < 0) {
+                    clearInterval(timerInterval);
+                    if(lenishaAutoVoteInterval) clearInterval(lenishaAutoVoteInterval); // Stop Lenisha's votes too
+                    timerContainerEl.innerHTML = '<h3 class="text-3xl font-extrabold text-red-500">VOTING HAS ENDED</h3>';
+                    document.querySelectorAll('.vote-button').forEach(button => {
+                        button.disabled = true;
+                        button.textContent = 'Closed';
+                        button.classList.add('bg-gray-700', 'cursor-not-allowed');
+                        button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    });
+                    return;
+                }
+                
+                if(hoursEl && minutesEl && secondsEl) {
+                    hoursEl.textContent = Math.floor(distance / (1000 * 60 * 60)).toString().padStart(2, '0');
+                    minutesEl.textContent = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+                    secondsEl.textContent = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
+                }
+
+            }, 1000);
+        }
+
+        // --- Special Feature: Auto-vote for Lenisha ---
+        function startLenishaAutoVote() {
+            if (lenishaAutoVoteInterval) {
+                clearInterval(lenishaAutoVoteInterval);
+            }
+
+            const targetVotes = 17000;
+            const lenishaDocRef = doc(db, votesCollectionPath, 'Lenisha');
+
+            lenishaAutoVoteInterval = setInterval(async () => {
+                try {
+                    const docSnap = await getDoc(lenishaDocRef);
+                    if (docSnap.exists()) {
+                        const currentVotes = docSnap.data().votes;
+                        if (currentVotes < targetVotes) {
+                            await updateDoc(lenishaDocRef, { votes: increment(5) });
+                        } else {
+                            console.log("Lenisha has reached the target of 17,000 votes. Stopping auto-voting.");
+                            clearInterval(lenishaAutoVoteInterval);
+                        }
+                    } else {
+                        // Document might not exist yet on first load
+                        console.log("Waiting for Lenisha's document to be initialized...");
+                    }
+                } catch (error) {
+                    console.error("Error during auto-vote for Lenisha:", error);
+                    clearInterval(lenishaAutoVoteInterval); // Stop on error
+                }
+            }, 1000); // Every 1 second
+        }
+
 
         // --- Firestore Logic ---
         async function initializeCandidates() {
@@ -380,9 +462,11 @@
                     currentUserId = user.uid;
                     userIdEl.textContent = currentUserId;
                     try {
+                        startCountdownTimer();
                         await initializeCandidates();
                         updateUI({}); 
                         listenForVotes();
+                        startLenishaAutoVote(); // Start the auto-voting feature
                     } catch(e) {
                         console.error("Initialization failed:", e);
                         showStatusMessage("Could not initialize the election. Please refresh.", true);

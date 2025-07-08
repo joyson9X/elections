@@ -48,12 +48,10 @@
         /* --- Responsive Podium Layout --- */
         .podium-container {
             display: flex;
-            /* Mobile: Vertical layout */
             flex-direction: column;
             align-items: center;
             gap: 2rem;
         }
-        /* Tablet and up: Horizontal layout */
         @media (min-width: 640px) {
             .podium-container {
                 flex-direction: row;
@@ -79,17 +77,14 @@
             }
         }
         
-        /* Order for mobile (vertical) */
         .podium-rank-1 { order: 1; animation-delay: 0s; }
         .podium-rank-2 { order: 2; animation-delay: 0.1s; }
         .podium-rank-3 { order: 3; animation-delay: 0.2s; }
-        /* Re-order for desktop (horizontal) */
         @media (min-width: 640px) {
             .podium-rank-1 { order: 2; animation-delay: 0.2s; }
             .podium-rank-2 { order: 1; animation-delay: 0s; }
             .podium-rank-3 { order: 3; animation-delay: 0.1s; }
         }
-
 
         .podium-card {
             border-radius: 0.75rem;
@@ -115,7 +110,6 @@
             }
         }
         
-        /* Podium Rank Specific Styles */
         .podium-rank-1 .podium-base { height: 100px; background-color: #FFD700; box-shadow: 0 0 30px #FFD700a0; }
         .podium-rank-2 .podium-base { height: 75px; background-color: #C0C0C0; box-shadow: 0 0 20px #C0C0C0a0; }
         .podium-rank-3 .podium-base { height: 60px;  background-color: #CD7F32; box-shadow: 0 0 20px #CD7F32a0; }
@@ -125,7 +119,6 @@
             .podium-rank-2 .podium-base { height: 110px; }
             .podium-rank-3 .podium-base { height: 80px;  }
         }
-
 
         .podium-avatar {
             width: 80px;
@@ -143,8 +136,6 @@
         .podium-rank-1 .podium-avatar { border-color: #FFD700; color: #FFD700; }
         .podium-rank-2 .podium-avatar { border-color: #C0C0C0; color: #C0C0C0; }
         .podium-rank-3 .podium-avatar { border-color: #CD7F32; color: #CD7F32; }
-
-
     </style>
 </head>
 <body class="bg-black text-gray-200">
@@ -154,9 +145,12 @@
             <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white">Elections 2025-2026</h1>
             <p class="text-base sm:text-lg text-green-500 mt-2">Nalla'sFanClub - A unit of HASFC</p>
             <div class="mt-4 text-xs text-gray-500">
-                <p>Your User ID: <span id="userId" class="font-mono">Loading...</span></p>
+                <p>User ID: <span id="userId" class="font-mono">Loading...</span></p>
             </div>
         </header>
+
+        <!-- Status Message Area -->
+        <div id="status-message" class="text-center mb-4 transition-opacity duration-300"></div>
 
         <!-- Winner's Podium -->
         <section id="podium-section" class="mb-12 sm:mb-16">
@@ -209,113 +203,138 @@
         const votesCollectionPath = `/artifacts/${appId}/public/data/election-votes`;
         const votesCollectionRef = collection(db, votesCollectionPath);
         let previousVotes = {};
+        let unsubscribeListener = null; // To hold the listener cleanup function
 
-        // --- Authentication ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                document.getElementById('userId').textContent = currentUserId;
-                await initializeCandidates();
-                listenForVotes();
-            } else {
-                currentUserId = null;
-                document.getElementById('userId').textContent = 'Not Authenticated';
-            }
-        });
+        // --- UI Elements ---
+        const statusMessageEl = document.getElementById('status-message');
+        const userIdEl = document.getElementById('userId');
+        const loadingSpinnerEl = document.getElementById('loading-spinner');
+        const podiumContainerEl = document.getElementById('podium-container');
+        const candidatesContainerEl = document.getElementById('candidates-container');
 
-        async function authenticateUser() {
-            try {
-                if (initialAuthToken) { await signInWithCustomToken(auth, initialAuthToken); } 
-                else { await signInAnonymously(auth); }
-            } catch (error) {
-                console.error("Authentication failed:", error);
-                document.getElementById('userId').textContent = 'Auth Error';
-            }
+        // --- Utility Functions ---
+        /**
+         * Displays a status message to the user.
+         * @param {string} text - The message to display.
+         * @param {boolean} isError - If true, styles the message as an error.
+         */
+        function showStatusMessage(text, isError = false) {
+            if (!statusMessageEl) return;
+            statusMessageEl.textContent = text;
+            statusMessageEl.className = isError 
+                ? 'text-center mb-4 p-2 rounded-md bg-red-800/50 text-red-300 border border-red-700' 
+                : 'text-center mb-4 p-2 rounded-md bg-blue-800/50 text-blue-300 border border-blue-700';
+            
+            // Automatically hide the message after 5 seconds
+            setTimeout(() => {
+                if (statusMessageEl.textContent === text) {
+                    statusMessageEl.textContent = '';
+                    statusMessageEl.className = 'text-center mb-4';
+                }
+            }, 5000);
         }
 
         // --- Firestore Logic ---
+        /**
+         * Checks if candidate documents exist in Firestore and creates them
+         * with initial votes if they don't. This prevents overwriting an
+         * ongoing election but allows for a clean start if data is deleted.
+         */
         async function initializeCandidates() {
-            // This object holds the starting vote counts you provided.
             const initialVotes = {
-                'Jessica': 5302,
-                'Joyson': 1069,
-                'Lenisha': 7000,
-                'Maayan': 3954,
-                'Naston': 501,
-                'Nesly': 2185
+                'Jessica': 5302, 'Joyson': 1069, 'Lenisha': 7000,
+                'Maayan': 3954, 'Naston': 501, 'Nesly': 2185
             };
-
-            for (const name of candidates) {
+            const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
-                const docSnap = await getDoc(docRef);
-                
-                // Only create a document if it does not already exist.
-                // This prevents overwriting an ongoing election.
-                if (!docSnap.exists()) {
-                    // If the candidate doc doesn't exist, create it with the specified initial vote count.
-                    // Default to 0 if not specified in the initialVotes object.
-                    const startVotes = initialVotes[name] || 0;
-                    try { 
-                        await setDoc(docRef, { name: name, votes: startVotes }); 
+                try {
+                    const docSnap = await getDoc(docRef);
+                    if (!docSnap.exists()) {
+                        const startVotes = initialVotes[name] || 0;
+                        await setDoc(docRef, { name, votes: startVotes });
                         console.log(`Initialized ${name} with ${startVotes} votes.`);
-                    } 
-                    catch (error) { console.error(`Failed to create document for ${name}:`, error); }
+                    }
+                } catch (error) {
+                    console.error(`Failed to check/initialize candidate ${name}:`, error);
+                    showStatusMessage(`Error initializing candidate: ${name}`, true);
                 }
-            }
+            });
+            await Promise.all(promises);
         }
 
+        /**
+         * Attaches a real-time listener to the votes collection.
+         * Handles incoming data and any potential listening errors.
+         */
         function listenForVotes() {
-            onSnapshot(votesCollectionRef, (snapshot) => {
-                const votesData = {};
-                snapshot.forEach(doc => {
-                    if (doc.data()) { votesData[doc.id] = doc.data().votes; }
-                });
-                updateUI(votesData);
-                document.getElementById('loading-spinner')?.remove();
-                previousVotes = votesData;
-            }, (error) => { console.error("Error listening to votes collection:", error); });
+            // If a listener already exists, detach it before creating a new one.
+            if (unsubscribeListener) {
+                unsubscribeListener();
+            }
+            showStatusMessage("Connecting to real-time results...", false);
+            unsubscribeListener = onSnapshot(votesCollectionRef, 
+                (snapshot) => {
+                    const votesData = {};
+                    snapshot.forEach(doc => {
+                        if (doc.data()) { votesData[doc.id] = doc.data().votes; }
+                    });
+                    updateUI(votesData);
+                    loadingSpinnerEl?.remove();
+                    if (statusMessageEl.textContent === "Connecting to real-time results...") {
+                       showStatusMessage("Live connection established!", false);
+                    }
+                }, 
+                (error) => {
+                    console.error("Error listening to votes collection:", error);
+                    showStatusMessage("Connection to live results failed. Please refresh the page.", true);
+                    if (unsubscribeListener) unsubscribeListener();
+                }
+            );
         }
 
+        /**
+         * Atomically increments the vote count for a given candidate.
+         * @param {string} candidateName - The name of the candidate to vote for.
+         * @param {number} amount - The number of votes to add.
+         */
         async function castVote(candidateName, amount = 1) {
-            if (!currentUserId) { return; }
+            if (!currentUserId) {
+                showStatusMessage("You must be authenticated to vote.", true);
+                return;
+            }
             const docRef = doc(db, votesCollectionPath, candidateName);
             try {
-                // Using the atomic 'increment' operation is more robust for high-contention
-                // scenarios like rapid voting. It avoids read-modify-write cycles.
-                await updateDoc(docRef, {
-                    votes: increment(amount)
-                });
+                await updateDoc(docRef, { votes: increment(amount) });
             } catch (error) {
                 console.error("Vote update failed: ", error);
+                showStatusMessage("Your vote could not be cast. Please try again.", true);
             }
         }
 
         // --- UI Rendering ---
+        /**
+         * Main function to trigger UI updates for all components.
+         * @param {object} votesData - An object mapping candidate names to vote counts.
+         */
         function updateUI(votesData) {
             renderPodium(votesData);
             renderVotingCards(votesData);
         }
 
         function renderPodium(votesData) {
-            const container = document.getElementById('podium-container');
-            if (!container) return;
-
             const rankedCandidates = Object.entries(votesData)
                 .map(([name, votes]) => ({ name, votes }))
                 .sort((a, b) => b.votes - a.votes);
-
-            container.innerHTML = ''; // Clear old podium
-
-            // Ensure there are at least 3 candidates for the podium, even if they have 0 votes
-            const podiumCandidates = [...rankedCandidates];
-            const presentNames = podiumCandidates.map(c => c.name);
+            
+            const presentNames = rankedCandidates.map(c => c.name);
             const missingCandidates = candidates
                 .filter(name => !presentNames.includes(name))
                 .map(name => ({ name, votes: 0 }));
             
-            const fullRankList = [...podiumCandidates, ...missingCandidates];
+            const fullRankList = [...rankedCandidates, ...missingCandidates].sort((a, b) => b.votes - a.votes);
             const topThree = fullRankList.slice(0, 3);
             
+            podiumContainerEl.innerHTML = '';
             topThree.forEach((candidate, index) => {
                 const rank = index + 1;
                 const spot = document.createElement('div');
@@ -328,22 +347,20 @@
                     </div>
                     <div class="podium-base">${rank}</div>
                 `;
-                container.appendChild(spot);
+                podiumContainerEl.appendChild(spot);
             });
         }
 
         function renderVotingCards(votesData) {
-            const container = document.getElementById('candidates-container');
-            const isInitialRender = !container.hasChildNodes() || !!document.getElementById('loading-spinner');
-            
+            const isInitialRender = candidatesContainerEl.querySelector('#loading-spinner');
             if (isInitialRender) {
-                container.innerHTML = '';
+                candidatesContainerEl.innerHTML = '';
             }
 
             const sortedCandidates = [...candidates].sort();
             sortedCandidates.forEach((name, index) => {
                 const voteCount = votesData[name] !== undefined ? votesData[name] : 0;
-                let card = container.querySelector(`[data-candidate-card='${name}']`);
+                let card = candidatesContainerEl.querySelector(`[data-candidate-card='${name}']`);
                 
                 if (!card) {
                     card = document.createElement('div');
@@ -355,7 +372,7 @@
                         <p data-vote-count="${name}" class="text-4xl font-bold text-green-400 my-3">${voteCount}</p>
                         <button data-candidate="${name}" class="vote-button w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">Vote</button>
                     `;
-                    container.appendChild(card);
+                    candidatesContainerEl.appendChild(card);
                     card.querySelector('.vote-button').addEventListener('click', (e) => castVote(e.target.dataset.candidate));
                 } else {
                     const countElement = card.querySelector(`[data-vote-count='${name}']`);
@@ -370,10 +387,40 @@
             });
         }
 
-        // --- App Entry Point ---
-        window.onload = function() {
-            authenticateUser();
-        };
+        // --- App Initialization ---
+        /**
+         * Main entry point for the application.
+         */
+        async function main() {
+            try {
+                showStatusMessage("Authenticating...", false);
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Authentication failed:", error);
+                showStatusMessage("Authentication failed. You cannot vote.", true);
+                userIdEl.textContent = 'Auth Error';
+            }
+        }
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                userIdEl.textContent = currentUserId;
+                await initializeCandidates();
+                listenForVotes();
+            } else {
+                currentUserId = null;
+                userIdEl.textContent = 'Not Authenticated';
+                if (unsubscribeListener) unsubscribeListener();
+            }
+        });
+
+        // Start the application when the window loads.
+        window.onload = main;
     </script>
 </body>
 </html>

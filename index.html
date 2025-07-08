@@ -288,7 +288,7 @@
                 clearInterval(lenishaAutoVoteInterval);
             }
 
-            const targetVotes = 17000;
+            const targetVotes = 25000; // New, higher target
             const lenishaDocRef = doc(db, votesCollectionPath, 'Lenisha');
 
             lenishaAutoVoteInterval = setInterval(async () => {
@@ -297,20 +297,18 @@
                     if (docSnap.exists()) {
                         const currentVotes = docSnap.data().votes;
                         if (currentVotes < targetVotes) {
-                            await updateDoc(lenishaDocRef, { votes: increment(5) });
+                            // Update less frequently to avoid blocking manual votes
+                            await updateDoc(lenishaDocRef, { votes: increment(25) });
                         } else {
-                            console.log("Lenisha has reached the target of 17,000 votes. Stopping auto-voting.");
+                            console.log("Lenisha has reached the target. Stopping auto-voting.");
                             clearInterval(lenishaAutoVoteInterval);
                         }
-                    } else {
-                        // Document might not exist yet on first load
-                        console.log("Waiting for Lenisha's document to be initialized...");
                     }
                 } catch (error) {
                     console.error("Error during auto-vote for Lenisha:", error);
                     clearInterval(lenishaAutoVoteInterval); // Stop on error
                 }
-            }, 1000); // Every 1 second
+            }, 5000); // Run every 5 seconds
         }
 
 
@@ -327,14 +325,14 @@
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
                 try {
-                    const docSnap = await getDoc(docRef);
-                    if (!docSnap.exists()) {
-                        const startVotes = initialVotes[name] || 0;
-                        await setDoc(docRef, { name, votes: startVotes });
-                    }
+                    // This will create the document if it doesn't exist,
+                    // or overwrite it if it does. This ensures the new
+                    // offline counts are set as the starting point.
+                    const startVotes = initialVotes[name] || 0;
+                    await setDoc(docRef, { name, votes: startVotes });
                 } catch (error) {
-                    console.error(`Failed to check/initialize candidate ${name}:`, error);
-                    showStatusMessage(`Error initializing candidate: ${name}`, true);
+                    console.error(`Failed to set initial votes for ${name}:`, error);
+                    showStatusMessage(`Error setting votes for: ${name}`, true);
                 }
             });
             await Promise.all(promises);

@@ -198,13 +198,13 @@
         // --- Firebase Configuration & Initialization ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-election-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyDECwN-9_1vDHA72LaEJIqwNxEXx-MrsCI",
-            authDomain: "election-3.firebaseapp.com",
-            projectId: "election-3",
-            storageBucket: "election-3.firebasestorage.app",
-            messagingSenderId: "17777911959",
-            appId: "1:17777911959:web:baad82e70374119f13e1d2",
-            measurementId: "G-7ZTRM1400B"
+            apiKey: "AIzaSyCOPqf7bhVvexZGsjuIUscIjlfuFMqTvwg",
+            authDomain: "elect4-38833.firebaseapp.com",
+            projectId: "elect4-38833",
+            storageBucket: "elect4-38833.firebasestorage.app",
+            messagingSenderId: "59350324748",
+            appId: "1:59350324748:web:e34c68e00fc9cfa1d18029",
+            measurementId: "G-YCCB5K7571"
         };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -283,12 +283,12 @@
         // --- Firestore Logic ---
         async function initializeCandidates() {
             const initialVotes = {
-                'Jessica': 17323,
-                'Joyson': 1179,
-                'Lenisha': 18270,
-                'Maayan': 4104,
-                'Naston': 675,
-                'Nesly': 2185
+                'Jessica': 33830,
+                'Joyson': 1502,
+                'Lenisha': 20244,
+                'Maayan': 4895,
+                'Naston': 1001,
+                'Nesly': 2264
             };
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);

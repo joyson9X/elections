@@ -156,7 +156,7 @@
 
         <!-- Timer Section -->
         <div id="timer-container" class="my-8 text-center animate-fadeIn" style="animation-delay: 0.2s;">
-            <h3 class="text-lg font-semibold text-gray-400 uppercase tracking-wider">Voting Ends In</h3>
+            <h3 id="timer-heading" class="text-lg font-semibold text-gray-400 uppercase tracking-wider">Loading Timer...</h3>
             <div id="timer" class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-yellow-400 mt-2">
                 <span class="timer-segment" id="hours">00</span>h
                 <span class="timer-segment" id="minutes">00</span>m
@@ -245,18 +245,56 @@
 
         // --- Timer Logic ---
         function startCountdownTimer() {
-            const countDownDate = new Date("2025-07-09T20:00:00");
+            const votingStartTime = new Date();
+            votingStartTime.setHours(19, 0, 0, 0); // Today at 7:00 PM
+
+            const votingEndTime = new Date("2025-07-09T20:00:00");
 
             const hoursEl = document.getElementById('hours');
             const minutesEl = document.getElementById('minutes');
             const secondsEl = document.getElementById('seconds');
             const timerContainerEl = document.getElementById('timer-container');
+            const timerHeadingEl = document.getElementById('timer-heading');
 
             const timerInterval = setInterval(() => {
                 const now = new Date().getTime();
-                const distance = countDownDate.getTime() - now;
 
-                if (distance < 0) {
+                // Case 1: Voting has not started yet
+                if (now < votingStartTime.getTime()) {
+                    const distance = votingStartTime.getTime() - now;
+                    timerHeadingEl.textContent = "Voting Starts In";
+
+                    const totalHours = Math.floor(distance / (1000 * 60 * 60));
+                    hoursEl.textContent = totalHours.toString().padStart(2, '0');
+                    minutesEl.textContent = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+                    secondsEl.textContent = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
+
+                    document.querySelectorAll('.vote-button').forEach(button => {
+                        button.disabled = true;
+                        if (button.textContent !== 'Locked') button.textContent = 'Locked';
+                        button.classList.add('bg-gray-700', 'cursor-not-allowed');
+                        button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    });
+                
+                // Case 2: Voting is active
+                } else if (now < votingEndTime.getTime()) {
+                    const distance = votingEndTime.getTime() - now;
+                    timerHeadingEl.textContent = "Voting Ends In";
+
+                    const totalHours = Math.floor(distance / (1000 * 60 * 60));
+                    hoursEl.textContent = totalHours.toString().padStart(2, '0');
+                    minutesEl.textContent = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+                    secondsEl.textContent = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
+                    
+                    document.querySelectorAll('.vote-button').forEach(button => {
+                        button.disabled = false;
+                        if (button.textContent !== 'Vote') button.textContent = 'Vote';
+                        button.classList.remove('bg-gray-700', 'cursor-not-allowed');
+                        button.classList.add('bg-green-600', 'hover:bg-green-700');
+                    });
+
+                // Case 3: Voting has ended
+                } else {
                     clearInterval(timerInterval);
                     timerContainerEl.innerHTML = '<h3 class="text-3xl font-extrabold text-red-500">VOTING HAS ENDED</h3>';
                     document.querySelectorAll('.vote-button').forEach(button => {
@@ -265,16 +303,7 @@
                         button.classList.add('bg-gray-700', 'cursor-not-allowed');
                         button.classList.remove('bg-green-600', 'hover:bg-green-700');
                     });
-                    return;
                 }
-                
-                if(hoursEl && minutesEl && secondsEl) {
-                    const totalHours = Math.floor(distance / (1000 * 60 * 60));
-                    hoursEl.textContent = totalHours.toString().padStart(2, '0');
-                    minutesEl.textContent = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
-                    secondsEl.textContent = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-                }
-
             }, 1000);
         }
 
@@ -291,9 +320,6 @@
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
                 try {
-                    // **FIX:** This logic now correctly sets the initial votes
-                    // ONLY if the document doesn't already exist in the database.
-                    // To reset with new offline votes, you must clear the data in Firebase first.
                     const docSnap = await getDoc(docRef);
                     if (!docSnap.exists()) {
                         const startVotes = initialVotes[name] || 0;

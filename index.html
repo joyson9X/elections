@@ -6,6 +6,8 @@
     <title>Elections 2025-2026 - Nalla'sFanClub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Flip.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -17,17 +19,9 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes countUpdate {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.2); color: #facc15; } /* Yellow-400 */
-            100% { transform: scale(1); }
-        }
         
         .animate-fadeIn {
             animation: fadeIn 0.6s ease-out forwards;
-        }
-        .animate-count-update {
-            animation: countUpdate 0.4s ease-in-out;
         }
 
         /* --- Theme & Transitions --- */
@@ -66,8 +60,8 @@
             width: 90%;
             max-width: 300px;
             text-align: center;
+            opacity: 0; /* Initially hidden for GSAP animation */
             position: relative;
-            transition: transform 0.5s ease, opacity 0.5s ease;
         }
         @media (min-width: 640px) {
             .podium-spot {
@@ -102,7 +96,6 @@
             font-size: 2.5rem;
             font-weight: 800;
             color: #111827;
-            transition: height 0.5s ease;
         }
         @media (min-width: 640px) {
             .podium-base {
@@ -195,6 +188,9 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- GSAP Plugin Registration ---
+        gsap.registerPlugin(Flip);
+
         // --- Firebase Configuration & Initialization ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-election-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
@@ -218,7 +214,6 @@
         const votesCollectionPath = `/artifacts/${appId}/public/data/election-votes`;
         const votesCollectionRef = collection(db, votesCollectionPath);
         let unsubscribeListener = null;
-        let previousVotes = {};
 
         // --- UI Elements ---
         const statusMessageEl = document.getElementById('status-message');
@@ -281,18 +276,17 @@
         // --- Firestore Logic ---
         async function initializeCandidates() {
             const initialVotes = {
-                'Jessica': 55165,
-                'Joyson': 1876,
-                'Lenisha': 35235,
-                'Maayan': 5005,
-                'Naston': 1873,
+                'Jessica': 51000,
+                'Joyson': 1868,
+                'Lenisha': 21800,
+                'Maayan': 4907,
+                'Naston': 1861,
                 'Nesly': 2264
             };
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
                 try {
                     const docSnap = await getDoc(docRef);
-                    // This will create the document with initial votes ONLY if it doesn't exist.
                     if (!docSnap.exists()) {
                         const startVotes = initialVotes[name] || 0;
                         await setDoc(docRef, { name, votes: startVotes });
@@ -342,9 +336,20 @@
 
         // --- UI Rendering ---
         function updateUI(votesData) {
-            renderPodium(votesData);
-            renderVotingCards(votesData);
-            loadingSpinnerEl?.remove();
+            try {
+                const state = Flip.getState(".podium-spot, [data-candidate-card]");
+                renderPodium(votesData);
+                renderVotingCards(votesData);
+                Flip.from(state, {
+                    duration: 0.7,
+                    ease: "power2.out",
+                    absolute: true,
+                });
+            } catch (error) {
+                console.error("UI Update failed:", error);
+            } finally {
+                loadingSpinnerEl?.remove();
+            }
         }
 
         function renderPodium(votesData) {
@@ -359,8 +364,8 @@
             topThree.forEach((candidate, index) => {
                 const rank = index + 1;
                 const spot = document.createElement('div');
-                spot.className = `podium-spot podium-rank-${rank} animate-fadeIn`;
-                spot.style.animationDelay = `${index * 0.1}s`;
+                spot.className = `podium-spot podium-rank-${rank}`;
+                spot.dataset.flipId = `podium-${candidate.name}`;
                 spot.innerHTML = `
                     <div class="podium-card">
                         <div class="podium-avatar">${candidate.name.charAt(0)}</div>
@@ -371,6 +376,10 @@
                 `;
                 podiumContainerEl.appendChild(spot);
             });
+            if(!podiumContainerEl.dataset.initialized) {
+                gsap.from(".podium-spot", { opacity: 0, y: 50, duration: 0.5, stagger: 0.1, ease: "power2.out" });
+                podiumContainerEl.dataset.initialized = "true";
+            }
         }
 
         function renderVotingCards(votesData) {
@@ -387,11 +396,10 @@
                 if (!card) {
                     card = document.createElement('div');
                     card.className = 'candidate-card bg-gray-900 border border-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center';
-                    if(isInitialRender) {
-                        card.classList.add('animate-fadeIn');
-                        card.style.animationDelay = `${0.5 + index * 0.05}s`;
-                    }
+                    if(isInitialRender) card.classList.add('animate-fadeIn');
+                    card.style.animationDelay = `${0.5 + index * 0.05}s`;
                     card.setAttribute('data-candidate-card', name);
+                    card.dataset.flipId = `card-${name}`;
                     card.innerHTML = `
                         <h2 class="text-2xl font-bold text-white">${name}</h2>
                         <p data-vote-count="${name}" class="text-4xl font-bold text-green-400 my-3">${voteCount.toLocaleString()}</p>
@@ -401,21 +409,19 @@
                     card.querySelector('.vote-button').addEventListener('click', (e) => castVote(e.target.dataset.candidate));
                 } else {
                     const countElement = card.querySelector(`[data-vote-count='${name}']`);
-                    const currentCountOnScreen = parseInt(countElement.textContent.replace(/,/g, ''));
-                    
-                    if (currentCountOnScreen !== voteCount) {
-                        countElement.textContent = voteCount.toLocaleString();
-                        // Only animate if the vote count has increased since the last check
-                        if (voteCount > (previousVotes[name] || 0)) {
-                            countElement.classList.remove('animate-count-update');
-                            // This trick restarts the CSS animation
-                            void countElement.offsetWidth; 
-                            countElement.classList.add('animate-count-update');
-                        }
+                    const currentCount = parseInt(countElement.textContent.replace(/,/g, ''));
+                    if (currentCount !== voteCount) {
+                         gsap.to(countElement, {
+                            duration: 0.5,
+                            innerText: voteCount,
+                            roundProps: "innerText",
+                            ease: "power2.inOut",
+                            onUpdate: function() {
+                                this.targets()[0].textContent = Math.ceil(this.targets()[0].innerText).toLocaleString();
+                            }
+                        });
                     }
                 }
-                // Update the memory of the last vote count
-                previousVotes[name] = voteCount;
             });
         }
 

@@ -291,8 +291,10 @@
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
                 try {
+                    // **FIX:** This logic now correctly sets the initial votes
+                    // ONLY if the document doesn't already exist in the database.
+                    // To reset with new offline votes, you must clear the data in Firebase first.
                     const docSnap = await getDoc(docRef);
-                    // This will create the document with initial votes ONLY if it doesn't exist.
                     if (!docSnap.exists()) {
                         const startVotes = initialVotes[name] || 0;
                         await setDoc(docRef, { name, votes: startVotes });
@@ -451,4 +453,3 @@
     </script>
 </body>
 </html>
-

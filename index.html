@@ -198,13 +198,13 @@
         // --- Firebase Configuration & Initialization ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-election-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyD5JcQ9EJgeqaJPMPKJQqieK6BatYie7BE",
-            authDomain: "joyson-5.firebaseapp.com",
-            projectId: "joyson-5",
-            storageBucket: "joyson-5.firebasestorage.app",
-            messagingSenderId: "1049857509942",
-            appId: "1:1049857509942:web:67813755b575b329d26697",
-            measurementId: "G-PXKDQR9LBP"
+            apiKey: "AIzaSyBoA0f0erZPNQpjQj6Xx5HniWOcU-rEg8Q",
+            authDomain: "final-lap-c3628.firebaseapp.com",
+            projectId: "final-lap-c3628",
+            storageBucket: "final-lap-c3628.firebasestorage.app",
+            messagingSenderId: "994390592737",
+            appId: "1:994390592737:web:543d35ffba941a43b23ba0",
+            measurementId: "G-ZJ33DR7BZY"
         };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -291,8 +291,8 @@
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
                 try {
+                    // This will create the document with initial votes if it doesn't exist.
                     const docSnap = await getDoc(docRef);
-                    // This will create the document with initial votes ONLY if it doesn't exist.
                     if (!docSnap.exists()) {
                         const startVotes = initialVotes[name] || 0;
                         await setDoc(docRef, { name, votes: startVotes });

@@ -6,6 +6,8 @@
     <title>Elections 2025-2026 - Nalla'sFanClub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Flip.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -17,17 +19,9 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes countUpdate {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); }
-        }
         
         .animate-fadeIn {
             animation: fadeIn 0.6s ease-out forwards;
-        }
-        .animate-count-update {
-            animation: countUpdate 0.4s ease-in-out;
         }
 
         /* --- Theme & Transitions --- */
@@ -66,8 +60,7 @@
             width: 90%;
             max-width: 300px;
             text-align: center;
-            opacity: 0;
-            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0; /* Initially hidden for GSAP animation */
             position: relative;
         }
         @media (min-width: 640px) {
@@ -77,13 +70,13 @@
             }
         }
         
-        .podium-rank-1 { order: 1; animation-delay: 0s; }
-        .podium-rank-2 { order: 2; animation-delay: 0.1s; }
-        .podium-rank-3 { order: 3; animation-delay: 0.2s; }
+        .podium-rank-1 { order: 1; }
+        .podium-rank-2 { order: 2; }
+        .podium-rank-3 { order: 3; }
         @media (min-width: 640px) {
-            .podium-rank-1 { order: 2; animation-delay: 0.2s; }
-            .podium-rank-2 { order: 1; animation-delay: 0s; }
-            .podium-rank-3 { order: 3; animation-delay: 0.1s; }
+            .podium-rank-1 { order: 2; }
+            .podium-rank-2 { order: 1; }
+            .podium-rank-3 { order: 3; }
         }
 
         .podium-card {
@@ -195,16 +188,19 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, onSnapshot, setDoc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- GSAP Plugin Registration ---
+        gsap.registerPlugin(Flip);
+
         // --- Firebase Configuration & Initialization ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-election-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyDYmqop_v-27lYsuhacstviUM6BJttax2c",
-            authDomain: "lee55-e1cc1.firebaseapp.com",
-            projectId: "lee55-e1cc1",
-            storageBucket: "lee55-e1cc1.firebasestorage.app",
-            messagingSenderId: "1082203292101",
-            appId: "1:1082203292101:web:42aed8b3679225e9184bac",
-            measurementId: "G-VHN1ZW66P6"
+            apiKey: "AIzaSyD5JcQ9EJgeqaJPMPKJQqieK6BatYie7BE",
+            authDomain: "joyson-5.firebaseapp.com",
+            projectId: "joyson-5",
+            storageBucket: "joyson-5.firebasestorage.app",
+            messagingSenderId: "1049857509942",
+            appId: "1:1049857509942:web:67813755b575b329d26697",
+            measurementId: "G-PXKDQR9LBP"
         };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -217,8 +213,7 @@
         const candidates = ['Lenisha', 'Maayan', 'Naston', 'Nesly', 'Joyson', 'Jessica'];
         const votesCollectionPath = `/artifacts/${appId}/public/data/election-votes`;
         const votesCollectionRef = collection(db, votesCollectionPath);
-        let previousVotes = {};
-        let unsubscribeListener = null; // To hold the listener cleanup function
+        let unsubscribeListener = null;
 
         // --- UI Elements ---
         const statusMessageEl = document.getElementById('status-message');
@@ -245,7 +240,6 @@
 
         // --- Timer Logic ---
         function startCountdownTimer() {
-            // Set a fixed end date for the election: July 9, 2025, at 8:00 PM local time.
             const countDownDate = new Date("2025-07-09T20:00:00");
 
             const hoursEl = document.getElementById('hours');
@@ -282,34 +276,30 @@
         // --- Firestore Logic ---
         async function initializeCandidates() {
             const initialVotes = {
-                'Jessica': 51000,
-                'Joyson': 1868,
-                'Lenisha': 21800,
-                'Maayan': 4907,
-                'Naston': 1861,
+                'Jessica': 55165,
+                'Joyson': 1876,
+                'Lenisha': 35235,
+                'Maayan': 5005,
+                'Naston': 1873,
                 'Nesly': 2264
             };
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
                 try {
-                    const docSnap = await getDoc(docRef);
-                    // **FIX:** Only set the initial votes if the document does NOT exist.
-                    if (!docSnap.exists()) {
-                        const startVotes = initialVotes[name] || 0;
-                        await setDoc(docRef, { name, votes: startVotes });
-                    }
+                    // This will create the document if it doesn't exist,
+                    // or overwrite it if it does, to set the new starting counts.
+                    const startVotes = initialVotes[name] || 0;
+                    await setDoc(docRef, { name, votes: startVotes });
                 } catch (error) {
-                    console.error(`Failed to initialize candidate ${name}:`, error);
-                    showStatusMessage(`Error initializing candidate: ${name}`, true);
+                    console.error(`Failed to set initial votes for ${name}:`, error);
+                    showStatusMessage(`Error setting votes for: ${name}`, true);
                 }
             });
             await Promise.all(promises);
         }
 
         function listenForVotes() {
-            if (unsubscribeListener) {
-                unsubscribeListener();
-            }
+            if (unsubscribeListener) return;
             showStatusMessage("Connecting to real-time results...", false);
             unsubscribeListener = onSnapshot(votesCollectionRef, 
                 (snapshot) => {
@@ -325,7 +315,6 @@
                 (error) => {
                     console.error("Error listening to votes collection:", error);
                     showStatusMessage("Connection to live results failed. Please refresh the page.", true);
-                    if (unsubscribeListener) unsubscribeListener();
                 }
             );
         }
@@ -347,13 +336,17 @@
         // --- UI Rendering ---
         function updateUI(votesData) {
             try {
+                const state = Flip.getState(".podium-spot, [data-candidate-card]");
                 renderPodium(votesData);
                 renderVotingCards(votesData);
+                Flip.from(state, {
+                    duration: 0.7,
+                    ease: "power2.out",
+                    absolute: true,
+                });
             } catch (error) {
                 console.error("UI Update failed:", error);
-                showStatusMessage("An error occurred while rendering the page.", true);
             } finally {
-                // This guarantees the spinner is removed even if a rendering error occurs.
                 loadingSpinnerEl?.remove();
             }
         }
@@ -363,12 +356,7 @@
                 .map(([name, votes]) => ({ name, votes }))
                 .sort((a, b) => b.votes - a.votes);
             
-            const presentNames = rankedCandidates.map(c => c.name);
-            const missingCandidates = candidates
-                .filter(name => !presentNames.includes(name))
-                .map(name => ({ name, votes: 0 }));
-            
-            const fullRankList = [...rankedCandidates, ...missingCandidates].sort((a, b) => b.votes - a.votes);
+            const fullRankList = [...rankedCandidates, ...candidates.filter(c => !votesData[c]).map(name => ({name, votes: 0}))].sort((a, b) => b.votes - a.votes);
             const topThree = fullRankList.slice(0, 3);
             
             podiumContainerEl.innerHTML = '';
@@ -376,6 +364,7 @@
                 const rank = index + 1;
                 const spot = document.createElement('div');
                 spot.className = `podium-spot podium-rank-${rank}`;
+                spot.dataset.flipId = `podium-${candidate.name}`;
                 spot.innerHTML = `
                     <div class="podium-card">
                         <div class="podium-avatar">${candidate.name.charAt(0)}</div>
@@ -386,10 +375,14 @@
                 `;
                 podiumContainerEl.appendChild(spot);
             });
+            if(!podiumContainerEl.dataset.initialized) {
+                gsap.from(".podium-spot", { opacity: 0, y: 50, duration: 0.5, stagger: 0.1, ease: "power2.out" });
+                podiumContainerEl.dataset.initialized = "true";
+            }
         }
 
         function renderVotingCards(votesData) {
-            const isInitialRender = candidatesContainerEl.querySelector('#loading-spinner');
+            const isInitialRender = !!candidatesContainerEl.querySelector('#loading-spinner');
             if (isInitialRender) {
                 candidatesContainerEl.innerHTML = '';
             }
@@ -401,27 +394,33 @@
                 
                 if (!card) {
                     card = document.createElement('div');
-                    card.className = 'candidate-card bg-gray-900 border border-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center animate-fadeIn';
+                    card.className = 'candidate-card bg-gray-900 border border-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center';
+                    if(isInitialRender) card.classList.add('animate-fadeIn');
                     card.style.animationDelay = `${0.5 + index * 0.05}s`;
                     card.setAttribute('data-candidate-card', name);
+                    card.dataset.flipId = `card-${name}`;
                     card.innerHTML = `
                         <h2 class="text-2xl font-bold text-white">${name}</h2>
                         <p data-vote-count="${name}" class="text-4xl font-bold text-green-400 my-3">${voteCount.toLocaleString()}</p>
-                        <button data-candidate="${name}" class="vote-button w-full bg-green-600 text-black font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">Vote</button>
+                        <button data-candidate="${name}" class="vote-button w-full bg-green-600 text-black font-bold py-3 px-4 rounded-lg hover:bg-green-700">Vote</button>
                     `;
                     candidatesContainerEl.appendChild(card);
                     card.querySelector('.vote-button').addEventListener('click', (e) => castVote(e.target.dataset.candidate));
                 } else {
                     const countElement = card.querySelector(`[data-vote-count='${name}']`);
-                    if (countElement.textContent.replace(/,/g, '') != voteCount) {
-                        countElement.textContent = voteCount.toLocaleString();
-                        if (voteCount > (previousVotes[name] || 0)) {
-                            countElement.classList.add('animate-count-update');
-                            countElement.addEventListener('animationend', () => countElement.classList.remove('animate-count-update'), { once: true });
-                        }
+                    const currentCount = parseInt(countElement.textContent.replace(/,/g, ''));
+                    if (currentCount !== voteCount) {
+                         gsap.to(countElement, {
+                            duration: 0.5,
+                            innerText: voteCount,
+                            roundProps: "innerText",
+                            ease: "power2.inOut",
+                            onUpdate: function() {
+                                this.targets()[0].textContent = Math.ceil(this.targets()[0].innerText).toLocaleString();
+                            }
+                        });
                     }
                 }
-                previousVotes[name] = voteCount;
             });
         }
 
@@ -434,14 +433,12 @@
                     try {
                         startCountdownTimer();
                         await initializeCandidates();
-                        updateUI({}); 
                         listenForVotes();
                     } catch(e) {
                         console.error("Initialization failed:", e);
                         showStatusMessage("Could not initialize the election. Please refresh.", true);
                     }
                 } else {
-                    // No user is signed in. Attempt to sign in.
                     try {
                         showStatusMessage("Authenticating...", false);
                         if (initialAuthToken) {

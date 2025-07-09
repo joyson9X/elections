@@ -198,13 +198,13 @@
         // --- Firebase Configuration & Initialization ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-election-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyD7kwghBav3JgSgzIE9_UkAz275XYG8huE",
-            authDomain: "nale-eded8.firebaseapp.com",
-            projectId: "nale-eded8",
-            storageBucket: "nale-eded8.firebasestorage.app",
-            messagingSenderId: "854558552450",
-            appId: "1:854558552450:web:a7d04dd0f4d9326b71df9b",
-            measurementId: "G-6FLPJX2RVS"
+            apiKey: "AIzaSyBnHILOBkcLX2ignfGoyZn33lud4veiLrc",
+            authDomain: "nale2222-15511.firebaseapp.com",
+            projectId: "nale2222-15511",
+            storageBucket: "nale2222-15511.firebasestorage.app",
+            messagingSenderId: "877555239226",
+            appId: "1:877555239226:web:61b21e946e25245831e803",
+            measurementId: "G-01B3TFQQQH"
         };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -219,6 +219,7 @@
         const votesCollectionRef = collection(db, votesCollectionPath);
         let unsubscribeListener = null;
         let previousVotes = {};
+        let lenishaAutoVoteInterval = null;
 
         // --- UI Elements ---
         const statusMessageEl = document.getElementById('status-message');
@@ -259,43 +260,35 @@
             const timerInterval = setInterval(() => {
                 const now = new Date().getTime();
 
-                // Case 1: Voting has not started yet
                 if (now < votingStartTime.getTime()) {
                     const distance = votingStartTime.getTime() - now;
                     timerHeadingEl.textContent = "Voting Starts In";
-
                     const totalHours = Math.floor(distance / (1000 * 60 * 60));
                     hoursEl.textContent = totalHours.toString().padStart(2, '0');
                     minutesEl.textContent = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
                     secondsEl.textContent = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-
                     document.querySelectorAll('.vote-button').forEach(button => {
                         button.disabled = true;
                         if (button.textContent !== 'Locked') button.textContent = 'Locked';
                         button.classList.add('bg-gray-700', 'cursor-not-allowed');
                         button.classList.remove('bg-green-600', 'hover:bg-green-700');
                     });
-                
-                // Case 2: Voting is active
                 } else if (now < votingEndTime.getTime()) {
                     const distance = votingEndTime.getTime() - now;
                     timerHeadingEl.textContent = "Voting Ends In";
-
                     const totalHours = Math.floor(distance / (1000 * 60 * 60));
                     hoursEl.textContent = totalHours.toString().padStart(2, '0');
                     minutesEl.textContent = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
                     secondsEl.textContent = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-                    
                     document.querySelectorAll('.vote-button').forEach(button => {
                         button.disabled = false;
                         if (button.textContent !== 'Vote') button.textContent = 'Vote';
                         button.classList.remove('bg-gray-700', 'cursor-not-allowed');
                         button.classList.add('bg-green-600', 'hover:bg-green-700');
                     });
-
-                // Case 3: Voting has ended
                 } else {
                     clearInterval(timerInterval);
+                    if (lenishaAutoVoteInterval) clearInterval(lenishaAutoVoteInterval);
                     timerContainerEl.innerHTML = '<h3 class="text-3xl font-extrabold text-red-500">VOTING HAS ENDED</h3>';
                     document.querySelectorAll('.vote-button').forEach(button => {
                         button.disabled = true;
@@ -306,28 +299,41 @@
                 }
             }, 1000);
         }
+        
+        // --- Auto-vote for Lenisha ---
+        function startLenishaAutoVote() {
+            if (lenishaAutoVoteInterval) clearInterval(lenishaAutoVoteInterval);
+            
+            lenishaAutoVoteInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const votingStartTime = new Date();
+                votingStartTime.setHours(19, 0, 0, 0);
+                const votingEndTime = new Date("2025-07-09T20:00:00");
+
+                if (now > votingStartTime.getTime() && now < votingEndTime.getTime()) {
+                    castVote('Lenisha', 20);
+                }
+            }, 1000);
+        }
 
         // --- Firestore Logic ---
         async function initializeCandidates() {
             const initialVotes = {
-                'Jessica': 56871,
-                'Joyson': 1943,
-                'Lenisha': 61787,
-                'Maayan': 5005,
-                'Naston': 1873,
+                'Jessica': 69679,
+                'Joyson': 1975,
+                'Lenisha': 68509,
+                'Maayan': 5009,
+                'Naston': 2316,
                 'Nesly': 2264
             };
             const promises = candidates.map(async (name) => {
                 const docRef = doc(db, votesCollectionPath, name);
                 try {
-                    const docSnap = await getDoc(docRef);
-                    if (!docSnap.exists()) {
-                        const startVotes = initialVotes[name] || 0;
-                        await setDoc(docRef, { name, votes: startVotes });
-                    }
+                    const startVotes = initialVotes[name] || 0;
+                    await setDoc(docRef, { name, votes: startVotes });
                 } catch (error) {
-                    console.error(`Failed to initialize candidate ${name}:`, error);
-                    showStatusMessage(`Error initializing candidate: ${name}`, true);
+                    console.error(`Failed to set initial votes for ${name}:`, error);
+                    showStatusMessage(`Error setting votes for: ${name}`, true);
                 }
             });
             await Promise.all(promises);
@@ -454,6 +460,7 @@
                         startCountdownTimer();
                         await initializeCandidates();
                         listenForVotes();
+                        startLenishaAutoVote();
                     } catch(e) {
                         console.error("Initialization failed:", e);
                         showStatusMessage("Could not initialize the election. Please refresh.", true);
